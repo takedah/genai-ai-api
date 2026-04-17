@@ -1,0 +1,24 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (formatter handles this)
+    "RUF001", # ambiguous unicode in strings (intentional fullwidth chars in Japanese strings and Mermaid sanitizer)
+    "RUF002", # ambiguous unicode in docstrings (standard Japanese punctuation in Japanese docstrings)
+    "RUF003", # ambiguous unicode in comments (standard Japanese punctuation in Japanese comments)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gemini_config", "retrieval_bq", "gemini_helpers", "schemas", "utils", "genai_util", "prompts", "gemini_usage_tracker"]
