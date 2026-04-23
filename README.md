@@ -1,3 +1,5 @@
+日本語 | [English](README.en.md)
+
 # 源内 AI アプリ
 
 ## 概要

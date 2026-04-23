@@ -1,3 +1,5 @@
+日本語 | [English](README.en.md)
+
 # このリポジトリの目的と構成
 
 ## 目次
@@ -35,6 +37,8 @@
 ---
 
 本リポジトリは、vLLMに対応しているHugging FaceモデルやAzure OpenAIのモデルをMicrosoft Azure上で効率的にホスティングし、APIとして提供するためのテンプレートです。
+
+本レポジトリでvLLMの実装例として、[PLaMo翻訳モデル](https://huggingface.co/pfnet/plamo-2-translate)を用いています。利用にあたっては、[plamo-community-license](https://plamo.preferredai.jp/info/plamo-community-license-en)をご参照ください。
 
 アーキテクチャは以下の通りです。
 
@@ -915,3 +919,4 @@ transformers==4.48.2
 
 本プロジェクトにはNoto Sans JP（源ノ角ゴシック）フォント（© 2014-2021 Adobe）が含まれます。
 当フォントはSIL Open Font License 1.1の下で提供されています。詳細は`app/font/OFL.txt`を参照してください。
+[PLaMo翻訳モデル](https://huggingface.co/pfnet/plamo-2-translate)の利用には、[plamo-community-license](https://plamo.preferredai.jp/info/plamo-community-license-en)を参照してください。

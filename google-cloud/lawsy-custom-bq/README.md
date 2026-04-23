@@ -1,3 +1,5 @@
+日本語 | [English](README.en.md)
+
 # Lawsy-Custom-BQ
 
 法令に関する質問を受け取り、AIが意図を解析して最適化されたレポートを動的に生成するサーバーレス API システムです。BigQuery ML のベクトル検索と Gemini を組み合わせ、日本の法令データ（e-Gov）を対象とした検索・回答生成を行います。

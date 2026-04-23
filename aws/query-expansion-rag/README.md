@@ -1,3 +1,5 @@
+日本語 | [English](README.en.md)
+
 # Query Expansion RAG API on CDK
 
 ## 概要
