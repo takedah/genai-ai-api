@@ -20,15 +20,15 @@
 
 ### Microsoft Azure
 
-- [vLLMで動くLLMをセルフデプロイまたはAzure OpenAI Serviceベースの行政実務用 AI アプリの開発資材類](./azure/genai-azure/)
+- [LLM（大規模言語モデル）をセルフデプロイして利用する開発テンプレート](./azure/genai-azure/)
 
 ### Google Cloud
 
-- [最新の法令情報をデータベースに保存し、生成 AI がデータベースとWeb検索を組み合わせ、法制度に関する調査レポートを作成するワークフローベースの行政実務用 AI アプリの開発資材類](./google-cloud/lawsy-custom-bq/)
+- [最新の法律条文データを参照・回答する法制度に関するAIアプリの再現可能な実装](./google-cloud/lawsy-custom-bq/)
 
 ### Amazon Web Services
 
-- [生成 AI が行政内部システムのマニュアル等に基づいた回答を行う（RAGシステム）の行政実務用 AI アプリ量産のための開発テンプレート](./aws/query-expansion-rag/)
+- [行政実務用ＲＡＧ（検索拡張生成）の開発テンプレート](./aws/query-expansion-rag/)
 
 それぞれの行政実務用 AI アプリの詳細は、フォルダ内の README ファイルをご参照ください。
 
