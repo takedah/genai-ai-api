@@ -41,11 +41,6 @@ export const stackInputSchema = z.object({
     )
     .default([]),
 
-  // WAF
-  allowedIpV4AddressRanges: z.array(z.string()).nullable(),
-  allowedIpV6AddressRanges: z.array(z.string()).nullable(),
-  allowedCountryCodes: z.array(z.string()).nullable(),
-
   // SwitchRole
   idcUserNames: z.array(z.string()),
   switchRoleName: z.string().default(''),
@@ -62,6 +57,12 @@ export const stackInputSchema = z.object({
     .min(29, 'API Gatewayの最小タイムアウトは29秒です')
     .max(300, 'API Gatewayの最大タイムアウトは300秒です')
     .default(29),
+
+  // VPC CIDR for the private network where Lambda runs and VPC endpoints are placed
+  vpcCidr: z
+    .string()
+    .regex(/^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/, 'vpcCidr は CIDR 形式で指定してください')
+    .default('10.130.0.0/20'),
 });
 
 export type StackInput = z.infer<typeof stackInputSchema>;

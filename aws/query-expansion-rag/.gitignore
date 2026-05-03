@@ -1,5 +1,7 @@
 *.js
 *.d.ts
 .claude/
+node_modules/
+cdk.out/
 !custom-resources/oss-index.js
 !test/unit/oss-index.test.js

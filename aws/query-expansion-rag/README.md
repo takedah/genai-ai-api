@@ -4,6 +4,8 @@
 
 ## 概要
 
+このプロジェクトは、デジタル庁 [genai-ai-api](https://github.com/digital-go-jp/genai-ai-api) をプライベートサブネットのみの閉域環境で動作するように CDK を一部改変したものです。
+
 このプロジェクトは、AWS Cloud Development Kit (CDK) を利用して、AWS Bedrock Knowledge Base を活用したクエリ拡張 RAG (Retrieval-Augmented Generation) API をデプロイするための CDK プロジェクトです。
 
 主な特徴は以下の通りです。
@@ -11,6 +13,8 @@
 - 設定ファイルを変更するだけで、複数の異なる仕様を持つRAGアプリケーションを一つのコードベースから並行してデプロイできます。
 - クエリ拡張、ナレッジベース検索、関連性評価、回答生成といった一連のRAG処理をLambda関数で実装しています。
 - API GatewayとLambdaを統合し、外部から安全に利用可能なAPIエンドポイントを提供します。
+
+このプロジェクト内のドキュメントは、デジタル庁 [genai-ai-api](https://github.com/digital-go-jp/genai-ai-api) を元に改変したものでライセンスは CC BY 4.0 のもとで提供されています。
 
 ## アーキテクチャ
 
@@ -128,38 +132,17 @@ graph LR
         - `config/apps/`の個別設定ファイルに記述された項目は、`config/defaults/`のデフォルト設定を上書きします。
         - 個別設定ファイルに記述がない項目は、デフォルト設定の値が自動的に適用されます。
 
-#### IPアドレス制限の設定
+#### ネットワーク構成（Private API）
 
-このAPIは、AWS WAFを利用してIPアドレスによるアクセス制限を行うことができます。設定は環境ごとに行います。
+このAPIは Private API Gateway として、プライベートサブネットのみを持つ VPC にデプロイされます。`NetworkStack` が VPC・プライベートサブネット・各種 VPC エンドポイント（`bedrock-runtime`, `bedrock-agent-runtime`, `kms`, `logs`, `execute-api`, `s3`）を作成し、Lambda はプライベートサブネットに配置されます。
 
-1.  **`parameter.ts`を編集する**
+API Gateway はリソースポリシーで `aws:SourceVpce` を `execute-api` の VPC エンドポイントに限定しているため、同一 VPC・VPC peering 経由・VPN/Direct Connect 経由のクライアントからのみアクセス可能です。
 
-    `parameter.ts`ファイル内の`deploy_envs`オブジェクトに、環境（`-dev`, `-stg`, `-prd`など）ごとの`allowedIpV4AddressRanges`または`allowedIpV6AddressRanges`をCIDR形式で記述します。
+VPC の CIDR を変更する場合は `cdk.json` の `vpcCidr` を編集してください（デフォルト: `10.130.0.0/20`）。
 
-    ```typescript
-    // parameter.ts
-    const deploy_envs: Record<string, Partial<StackInput>> = {
-      "-dev": {
-        // 開発環境からのみアクセスを許可する
-        allowedIpV4AddressRanges: [
-          "192.168.0.0/32",
-          "192.168.0.1/32",
-        ],
-      },
-      "-stg": {
-        // ステージング環境からのみアクセスを許可する
-        allowedIpV4AddressRanges: [
-          "192.168.1.0/32",
-          "192.168.1.1/32",
-        ],
-      },
-      // ...
-    };
-    ```
+#### その他
 
-2.  **デプロイする**
-
-    ファイルを保存して`cdk deploy --all -c env=-dev`を実行すると、指定したIPアドレスのみからのアクセスを許可するWAFルールがAPI Gatewayに適用されます。
+`cdk.json` 内の `switchRoleName` を実際に存在する IAM Role 名を設定してください。（CDK でこの IAM Role を参照するリソースの作成に失敗するため。）
 
 ## 設定リファレンス
 

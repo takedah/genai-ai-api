@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import * as toml from 'toml';
 import { spawnSync } from 'child_process';
 import { AssetHashType, Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda  from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as kms from "aws-cdk-lib/aws-kms";
@@ -20,6 +21,10 @@ export interface RagLambdaProps {
   encryptionKey: kms.IKey;
   /** Bedrock regions allowed for model invocation (defaults to deploy region if not specified) */
   bedrockRegions?: string[];
+  /** VPC to attach the Lambda function to */
+  vpc: ec2.IVpc;
+  /** Security group attached to the Lambda function */
+  securityGroup: ec2.ISecurityGroup;
 }
 
 export class RagLambda extends Construct {
@@ -166,6 +171,9 @@ export class RagLambda extends Construct {
       description: 'RAG Lambda function with query expansion and KB retrieval',
       memorySize: 512,
       timeout: Duration.seconds(900),
+      vpc: props.vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      securityGroups: [props.securityGroup],
       environment: {
         KNOWLEDGE_BASE_ID: props.knowledgeBaseId,
         KB_NUM_RESULTS: '20',

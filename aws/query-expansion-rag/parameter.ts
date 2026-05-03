@@ -20,12 +20,8 @@ const deploy_envs: Record<string, Partial<StackInput>> = {
     //   {"appName": "qerag", "appParamFile": "qerag.toml"}
     // ],
 
-    "qeRagAppNamesWithSharedCmek": [
+    "qeRagAppNamesWithS3Vectors": [
       {"appName": "qerag-shared-1", "appParamFile": "qerag.toml"}
-    ],
-    // 許可する送信元 IPv4 アドレス範囲を指定してください
-    allowedIpV4AddressRanges: [
-      "0.0.0.0/0", // TODO: Replace with your actual source IP address ranges
     ],
 
     // SSO スイッチロールを使用する場合はロール名を指定してください（不要な場合は削除可）
@@ -51,7 +47,7 @@ const deploy_envs: Record<string, Partial<StackInput>> = {
   //   "qeRagAppNamesWithSharedCmek": [
   //     {"appName": "qerag-shared-1", "appParamFile": "qerag.toml"}
   //   ],
-    
+
   //   // ログレベル（本番環境ではINFOログを出力）
   //   logLevel: "INFO",
   // },
@@ -139,4 +135,3 @@ export function validateAppNames(params: StackInput): void {
     );
   }
 }
-

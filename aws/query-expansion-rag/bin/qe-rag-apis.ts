@@ -4,7 +4,7 @@ import * as cdk from 'aws-cdk-lib';
 import { AwsSolutionsChecks } from 'cdk-nag'
 import { getParams, validateAppNames } from '../parameter';
 import { RagLambdaApiStack } from '../lib/rag-lambda-api-stack';
-import { ApiWafStack } from '../lib/api-waf-stack';
+import { NetworkStack } from '../lib/network-stack';
 import { RagKnowledgeBaseStack } from '../lib/rag-knowledge-base-stack';
 import { RagS3VectorsKbStack } from '../lib/rag-s3vectors-kb-stack';
 import { SwitchRoleForBedrockFlowsDeveloperStack } from '../lib/switch-role-stack';
@@ -31,11 +31,10 @@ const env = {
 // CDK-NAGの有効化
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
-const waf = new ApiWafStack(app, `ApiWafStack`, {
+// Shared private network for all RAG APIs (VPC + endpoints)
+const network = new NetworkStack(app, `NetworkStack${params.env}`, {
   env: env,
-  allowedIpV4AddressRanges: params.allowedIpV4AddressRanges,
-  allowedIpV6AddressRanges: params.allowedIpV6AddressRanges,
-  allowedCountryCodes: params.allowedCountryCodes
+  vpcCidr: params.vpcCidr,
 });
 
 // ragAppNamesに定義されたAppName（プレフィックス）ごとにRole、KnowledgeBase、RAG APIを作成（個別CMEK）
@@ -57,7 +56,6 @@ for (const appCfg of params.qeRagAppNames) {
   new RagLambdaApiStack(app, `${mergedParams.appName}-qeRagApi`, {
     env: env,
     appName: mergedParams.appName,
-    webAclArn: waf.webAclArn,
     knowledgeBaseId: kb.knowledgeBaseId,
     switchRole: swtichRoleStack.switchRole,
     logLevel: params.logLevel,
@@ -65,6 +63,9 @@ for (const appCfg of params.qeRagAppNames) {
     encryptionKey: kb.encryptionKey,
     apiLambdaIntegrationTimeout: params.apiLambdaIntegrationTimeout,
     bedrockRegions: params.bedrockRegions,
+    vpc: network.vpc,
+    lambdaSecurityGroup: network.lambdaSecurityGroup,
+    executeApiVpcEndpoint: network.executeApiVpcEndpoint,
   });
 }
 
@@ -106,7 +107,6 @@ if (params.qeRagAppNamesWithSharedCmek.length > 0) {
     new RagLambdaApiStack(app, `${mergedParams.appName}-qeRagApi`, {
       env: env,
       appName: mergedParams.appName,
-      webAclArn: waf.webAclArn,
       knowledgeBaseId: kb.knowledgeBaseId,
       switchRole: switchRole,
       logLevel: params.logLevel,
@@ -114,6 +114,9 @@ if (params.qeRagAppNamesWithSharedCmek.length > 0) {
       encryptionKey: kb.encryptionKey,
       apiLambdaIntegrationTimeout: params.apiLambdaIntegrationTimeout,
       bedrockRegions: params.bedrockRegions,
+      vpc: network.vpc,
+      lambdaSecurityGroup: network.lambdaSecurityGroup,
+      executeApiVpcEndpoint: network.executeApiVpcEndpoint,
     });
   }
 }
@@ -135,7 +138,6 @@ for (const appCfg of params.qeRagAppNamesWithS3Vectors) {
   new RagLambdaApiStack(app, `${mergedParams.appName}-qeRagApi`, {
     env: env,
     appName: mergedParams.appName,
-    webAclArn: waf.webAclArn,
     knowledgeBaseId: kb.knowledgeBaseId,
     switchRole: swtichRoleStack.switchRole,
     logLevel: params.logLevel,
@@ -143,5 +145,8 @@ for (const appCfg of params.qeRagAppNamesWithS3Vectors) {
     encryptionKey: kb.encryptionKey,
     apiLambdaIntegrationTimeout: params.apiLambdaIntegrationTimeout,
     bedrockRegions: params.bedrockRegions,
+    vpc: network.vpc,
+    lambdaSecurityGroup: network.lambdaSecurityGroup,
+    executeApiVpcEndpoint: network.executeApiVpcEndpoint,
   });
 }

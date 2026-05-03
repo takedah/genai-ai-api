@@ -1,9 +1,9 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 import { RagLambda } from './constructs/rag-lambda';
@@ -27,8 +27,6 @@ const API_QUOTA_CONFIG = {
 interface RagLambdaApiStackProps extends StackProps {
   /** Application name identifier */
   readonly appName: string;
-  /** ARN of WAF WebACL to associate with API Gateway */
-  readonly webAclArn: string;
   /** Bedrock Knowledge Base ID */
   readonly knowledgeBaseId: string;
   /** IAM role for switch role access */
@@ -43,6 +41,12 @@ interface RagLambdaApiStackProps extends StackProps {
   readonly apiLambdaIntegrationTimeout: number;
   /** Bedrock regions allowed for model invocation (defaults to deploy region if not specified) */
   readonly bedrockRegions?: string[];
+  /** VPC for the Lambda function */
+  readonly vpc: ec2.IVpc;
+  /** Security group for the Lambda function */
+  readonly lambdaSecurityGroup: ec2.ISecurityGroup;
+  /** VPC endpoint for execute-api — used to restrict the Private API */
+  readonly executeApiVpcEndpoint: ec2.IInterfaceVpcEndpoint;
 }
 
 /**
@@ -52,7 +56,7 @@ export class RagLambdaApiStack extends Stack {
   constructor(scope: Construct, id: string, props: RagLambdaApiStackProps) {
     super(scope, id, props);
 
-    // Create RAG Lambda function
+    // Create RAG Lambda function (VPC-attached)
     const ragFunction = new RagLambda(this, 'RagLambda', {
       knowledgeBaseId: props.knowledgeBaseId,
       appName: props.appName,
@@ -60,19 +64,22 @@ export class RagLambdaApiStack extends Stack {
       appParamFile: props.appParamFile,
       encryptionKey: props.encryptionKey,
       bedrockRegions: props.bedrockRegions,
+      vpc: props.vpc,
+      securityGroup: props.lambdaSecurityGroup,
     });
 
-    // Create API Gateway REST API
-    const restApi = this.createRestApi(props.appName, props.encryptionKey);
+    // Create Private API Gateway REST API restricted to the execute-api VPC endpoint
+    const restApi = this.createRestApi(
+      props.appName,
+      props.encryptionKey,
+      props.executeApiVpcEndpoint
+    );
 
     // Configure usage plan and API key
     const { apiKey } = this.configureApiAccess(restApi, props.appName);
 
     // Add gateway responses for CORS
     this.addGatewayResponses(restApi);
-
-    // Associate WAF WebACL
-    this.associateWaf(restApi, props.webAclArn);
 
     // Create POST /invoke endpoint
     const invokeEndpoint = this.createInvokeEndpoint(
@@ -92,11 +99,13 @@ export class RagLambdaApiStack extends Stack {
   }
 
   /**
-   * Create REST API with logging and CORS
+   * Create Private REST API with logging and CORS, restricted via resource policy
+   * to the supplied execute-api VPC endpoint.
    */
   private createRestApi(
     appName: string,
-    encryptionKey: kms.IKey
+    encryptionKey: kms.IKey,
+    executeApiVpcEndpoint: ec2.IInterfaceVpcEndpoint
   ): apigateway.RestApi {
     const accessLogGroup = new logs.LogGroup(this, `${appName}-ApiGatewayLogGroup`, {
       encryptionKey: encryptionKey,
@@ -104,8 +113,35 @@ export class RagLambdaApiStack extends Stack {
       retention: logs.RetentionDays.ONE_WEEK,
     });
 
+    // Resource policy: deny everything not coming through the designated VPC endpoint.
+    const resourcePolicy = new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          principals: [new iam.AnyPrincipal()],
+          actions: ['execute-api:Invoke'],
+          resources: ['execute-api:/*'],
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.DENY,
+          principals: [new iam.AnyPrincipal()],
+          actions: ['execute-api:Invoke'],
+          resources: ['execute-api:/*'],
+          conditions: {
+            StringNotEquals: {
+              'aws:SourceVpce': executeApiVpcEndpoint.vpcEndpointId,
+            },
+          },
+        }),
+      ],
+    });
+
     return new apigateway.RestApi(this, `${appName}-RagApi`, {
-      endpointTypes: [apigateway.EndpointType.REGIONAL],
+      endpointConfiguration: {
+        types: [apigateway.EndpointType.PRIVATE],
+        vpcEndpoints: [executeApiVpcEndpoint],
+      },
+      policy: resourcePolicy,
       deployOptions: {
         dataTraceEnabled: true,
         metricsEnabled: true,
@@ -158,16 +194,6 @@ export class RagLambdaApiStack extends Stack {
     api.addGatewayResponse('Api5XX', {
       type: apigateway.ResponseType.DEFAULT_5XX,
       responseHeaders: corsHeaders,
-    });
-  }
-
-  /**
-   * Associate WAF WebACL with API Gateway
-   */
-  private associateWaf(api: apigateway.RestApi, webAclArn: string): void {
-    new wafv2.CfnWebACLAssociation(this, 'ApiWafAssociation', {
-      resourceArn: api.deploymentStage.stageArn,
-      webAclArn: webAclArn,
     });
   }
 
@@ -256,13 +282,22 @@ export class RagLambdaApiStack extends Stack {
     api: apigateway.RestApi,
     invokeResource: apigateway.Resource
   ): void {
-    NagSuppressions.addResourceSuppressions(api, [
-      {
-        id: 'AwsSolutions-APIG2',
-        reason:
-          'Request validation is implemented in the Lambda function with comprehensive input validation and error handling',
-      },
-    ]);
+    NagSuppressions.addResourceSuppressions(
+      api,
+      [
+        {
+          id: 'AwsSolutions-APIG2',
+          reason:
+            'Request validation is implemented in the Lambda function with comprehensive input validation and error handling',
+        },
+        {
+          id: 'AwsSolutions-APIG3',
+          reason:
+            'Private API Gateway accessed only via execute-api VPC endpoint; access is restricted by resource policy on aws:SourceVpce instead of WAFv2 (WAFv2 is not supported on Private REST APIs)',
+        },
+      ],
+      true
+    );
 
     NagSuppressions.addResourceSuppressionsByPath(
       this,

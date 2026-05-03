@@ -4,6 +4,8 @@
 
 ## Overview
 
+This project is a modified version of the [genai-ai-api](https://github.com/digital-go-jp/genai-ai-api) by Digital Agency of Japan, adapted to run on a network that has only private subnets.
+
 This project is a CDK project for deploying a Query Expansion RAG (Retrieval-Augmented Generation) API leveraging AWS Bedrock Knowledge Base using the AWS Cloud Development Kit (CDK).
 
 Key features include:
@@ -11,6 +13,8 @@ Key features include:
 - Deploy multiple RAG applications with different specifications from a single codebase, simply by changing configuration files.
 - Implements the entire RAG pipeline (query expansion, knowledge base retrieval, relevance evaluation, answer generation) in Lambda functions.
 - Provides a secure, externally accessible API endpoint by integrating API Gateway and Lambda.
+
+Documents in this project are based on [genai-ai-api](https://github.com/digital-go-jp/genai-ai-api) by Digital Agency of Japan, licensed under CC BY 4.0.
 
 ## Architecture
 
@@ -128,38 +132,17 @@ This project allows flexible deployment content changes through configuration co
         - Items described in the individual configuration file in `config/apps/` override the default configuration in `config/defaults/`.
         - For items not described in the individual configuration file, the values from the default configuration are automatically applied.
 
-#### IP Address Restriction Configuration
+#### Network Configuration (Private API)
 
-This API can use AWS WAF to restrict access by IP address. Configuration is done for each environment.
+The API is deployed as a Private API Gateway in a VPC containing only private subnets. `NetworkStack` provisions the VPC, private subnets, and VPC endpoints (`bedrock-runtime`, `bedrock-agent-runtime`, `kms`, `logs`, `execute-api`, `s3`). The Lambda function is attached to the private subnets.
 
-1.  **Edit `parameter.ts`**
+The API Gateway resource policy restricts `aws:SourceVpce` to the `execute-api` VPC endpoint, so the API is reachable only from clients inside the same VPC, peered VPCs, or networks connected via VPN / Direct Connect.
 
-    In the `deploy_envs` object in the `parameter.ts` file, describe `allowedIpV4AddressRanges` or `allowedIpV6AddressRanges` in CIDR format for each environment (`-dev`, `-stg`, `-prd`, etc.).
+To change the VPC CIDR, edit `vpcCidr` in `cdk.json` (default: `10.130.0.0/20`).
 
-    ```typescript
-    // parameter.ts
-    const deploy_envs: Record<string, Partial<StackInput>> = {
-      "-dev": {
-        // Allow access only from development environment
-        allowedIpV4AddressRanges: [
-          "192.168.0.0/32",
-          "192.168.0.1/32",
-        ],
-      },
-      "-stg": {
-        // Allow access only from staging environment
-        allowedIpV4AddressRanges: [
-          "192.168.1.0/32",
-          "192.168.1.1/32",
-        ],
-      },
-      // ...
-    };
-    ```
+#### Others
 
-2.  **Deploy**
-
-    Save the file and run `cdk deploy --all -c env=-dev` to apply WAF rules to API Gateway that allow access only from the specified IP addresses.
+Set the `switchRoleName` line in `cdk.json` to the name of an actual existing IAM Role. (Otherwise, CDK will fail to create resources that reference this IAM Role.)
 
 ## Configuration Reference
 
